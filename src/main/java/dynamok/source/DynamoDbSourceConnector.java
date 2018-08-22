@@ -60,6 +60,8 @@ public class DynamoDbSourceConnector extends SourceConnector {
     public List<Map<String, String>> taskConfigs(int maxTasks) {
         return ConnectorUtils.groupPartitions(new ArrayList<>(streamShards.keySet()), maxTasks).stream().map(taskShards -> {
             final Map<String, String> taskConfig = new HashMap<>();
+            taskConfig.put(TaskConfig.Keys.ACCESS_KEY_ID, config.accessKeyId.value());
+            taskConfig.put(TaskConfig.Keys.SECRET_KEY, config.secretKey.value());
             taskConfig.put(TaskConfig.Keys.REGION, config.region.getName());
             taskConfig.put(TaskConfig.Keys.TOPIC_FORMAT, config.topicFormat);
             taskConfig.put(TaskConfig.Keys.SHARDS, taskShards.stream().map(Shard::getShardId).collect(Collectors.joining(",")));

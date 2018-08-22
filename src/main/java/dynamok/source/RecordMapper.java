@@ -21,64 +21,60 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 
-import java.util.HashMap;
 import java.util.Map;
 
-public enum RecordMapper {
-    ;
+public class RecordMapper {
 
-    private static final Schema AV_SCHEMA =
-            SchemaBuilder.struct()
-                    .name("DynamoDB.AttributeValue")
-                    .field("S", Schema.OPTIONAL_STRING_SCHEMA)
-                    .field("N", Schema.OPTIONAL_STRING_SCHEMA)
-                    .field("B", Schema.OPTIONAL_BYTES_SCHEMA)
-                    .field("SS", SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build())
-                    .field("NS", SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build())
-                    .field("BS", SchemaBuilder.array(Schema.BYTES_SCHEMA).optional().build())
-                    .field("NULL", Schema.OPTIONAL_BOOLEAN_SCHEMA)
-                    .field("BOOL", Schema.OPTIONAL_BOOLEAN_SCHEMA)
-                    //      .field("L", "DynamoDB.AttributeValue") -- FIXME https://issues.apache.org/jira/browse/KAFKA-3910
-                    //      .field("M", "DynamoDB.AttributeValue") -- FIXME https://issues.apache.org/jira/browse/KAFKA-3910
-                    .version(1)
-                    .build();
-
-    private static final Schema DYNAMODB_ATTRIBUTES_SCHEMA =
-            SchemaBuilder.map(Schema.STRING_SCHEMA, AV_SCHEMA)
-                    .name("DynamoDB.Attributes")
-                    .version(1)
-                    .build();
-
-    public static Schema attributesSchema() {
-        return DYNAMODB_ATTRIBUTES_SCHEMA;
-    }
-
-    public static Map<String, Struct> toConnect(Map<String, AttributeValue> attributes) {
-        Map<String, Struct> connectAttributes = new HashMap<>(attributes.size());
+    public static Schema convertSchema(String tableName, Map<String, AttributeValue> attributes) {
+        final SchemaBuilder builder = SchemaBuilder.struct().name(tableName);
         for (Map.Entry<String, AttributeValue> attribute : attributes.entrySet()) {
             final String attributeName = attribute.getKey();
             final AttributeValue attributeValue = attribute.getValue();
-            final Struct attributeValueStruct = new Struct(AV_SCHEMA);
             if (attributeValue.getS() != null) {
-                attributeValueStruct.put("S", attributeValue.getS());
+                builder.field(attributeName, Schema.OPTIONAL_STRING_SCHEMA);
             } else if (attributeValue.getN() != null) {
-                attributeValueStruct.put("N", attributeValue.getN());
+                builder.field(attributeName, Schema.OPTIONAL_STRING_SCHEMA);
             } else if (attributeValue.getB() != null) {
-                attributeValueStruct.put("B", attributeValue.getB());
+                builder.field(attributeName, Schema.OPTIONAL_BYTES_SCHEMA);
             } else if (attributeValue.getSS() != null) {
-                attributeValueStruct.put("SS", attributeValue.getSS());
+                builder.field(attributeName, SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build());
             } else if (attributeValue.getNS() != null) {
-                attributeValueStruct.put("NS", attributeValue.getNS());
+                builder.field(attributeName, SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build());
             } else if (attributeValue.getBS() != null) {
-                attributeValueStruct.put("BS", attributeValue.getBS());
+                builder.field(attributeName, SchemaBuilder.array(Schema.BYTES_SCHEMA).optional().build());
             } else if (attributeValue.getNULL() != null) {
-                attributeValueStruct.put("NULL", attributeValue.getNULL());
+                builder.field(attributeName, Schema.OPTIONAL_BOOLEAN_SCHEMA);
             } else if (attributeValue.getBOOL() != null) {
-                attributeValueStruct.put("BOOL", attributeValue.getBOOL());
+                builder.field(attributeName, Schema.OPTIONAL_BOOLEAN_SCHEMA);
             }
-            connectAttributes.put(attributeName, attributeValueStruct);
         }
-        return connectAttributes;
+        return builder.build();
+    }
+
+    public static Struct convertRecord(Schema schema, Map<String, AttributeValue> attributes) {
+        final Struct record = new Struct(schema);
+        for (Map.Entry<String, AttributeValue> attribute : attributes.entrySet()) {
+            final String attributeName = attribute.getKey();
+            final AttributeValue attributeValue = attribute.getValue();
+            if (attributeValue.getS() != null) {
+                record.put(attributeName, attributeValue.getS());
+            } else if (attributeValue.getN() != null) {
+                record.put(attributeName, attributeValue.getN());
+            } else if (attributeValue.getB() != null) {
+                record.put(attributeName, attributeValue.getB());
+            } else if (attributeValue.getSS() != null) {
+                record.put(attributeName, attributeValue.getSS());
+            } else if (attributeValue.getNS() != null) {
+                record.put(attributeName, attributeValue.getNS());
+            } else if (attributeValue.getBS() != null) {
+                record.put(attributeName, attributeValue.getBS());
+            } else if (attributeValue.getNULL() != null) {
+                record.put(attributeName, attributeValue.getNULL());
+            } else if (attributeValue.getBOOL() != null) {
+                record.put(attributeName, attributeValue.getBOOL());
+            }
+        }
+        return record;
     }
 
 }

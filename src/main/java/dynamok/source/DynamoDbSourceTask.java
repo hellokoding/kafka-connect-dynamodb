@@ -19,23 +19,17 @@ package dynamok.source;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreamsClient;
-import com.amazonaws.services.dynamodbv2.model.GetRecordsRequest;
-import com.amazonaws.services.dynamodbv2.model.GetRecordsResult;
-import com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest;
-import com.amazonaws.services.dynamodbv2.model.ShardIteratorType;
-import com.amazonaws.services.dynamodbv2.model.StreamRecord;
+import com.amazonaws.services.dynamodbv2.model.*;
 import dynamok.Version;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class DynamoDbSourceTask extends SourceTask {
@@ -107,17 +101,23 @@ public class DynamoDbSourceTask extends SourceTask {
         final Map<String, String> sourcePartition = sourcePartition(shardId);
 
         return rsp.getRecords().stream()
-                .map(dynamoRecord -> toSourceRecord(sourcePartition, topic, dynamoRecord.getDynamodb()))
+                .map(dynamoRecord -> toSourceRecord(tableName, sourcePartition, topic, dynamoRecord.getDynamodb()))
                 .collect(Collectors.toList());
     }
 
-    private SourceRecord toSourceRecord(Map<String, String> sourcePartition, String topic, StreamRecord dynamoRecord) {
+    private SourceRecord toSourceRecord(String tableName, Map<String, String> sourcePartition, String topic, StreamRecord dynamoRecord) {
+        Schema keySchema = RecordMapper.convertSchema(tableName, dynamoRecord.getKeys());
+        Struct keyRecord = RecordMapper.convertRecord(keySchema, dynamoRecord.getKeys());
+
+        Schema valueSchema = RecordMapper.convertSchema(tableName, dynamoRecord.getNewImage());
+        Struct valueRecord = RecordMapper.convertRecord(valueSchema, dynamoRecord.getNewImage());
+
         return new SourceRecord(
                 sourcePartition,
                 Collections.singletonMap(Keys.SEQNUM, dynamoRecord.getSequenceNumber()),
                 topic, null,
-                RecordMapper.attributesSchema(), RecordMapper.toConnect(dynamoRecord.getKeys()),
-                RecordMapper.attributesSchema(), RecordMapper.toConnect(dynamoRecord.getNewImage()),
+                keySchema, keyRecord,
+                valueSchema, valueRecord,
                 dynamoRecord.getApproximateCreationDateTime().getTime()
         );
     }
